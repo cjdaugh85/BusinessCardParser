@@ -1,0 +1,27 @@
+{
+  "name": "business_card_parser",
+  "version": "1.0.0",
+  "description": "Project created to accept input from the Business Card OCR and parse the contact information to incluse the person's name, phone number and email address.",
+  "main": "app.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cjdaugh85/BusinessCardParser.git"
+  },
+  "author": "Chris Daugherty",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/cjdaugh85/BusinessCardParser/issues"
+  },
+  "homepage": "https://github.com/cjdaugh85/BusinessCardParser#readme",
+  "dependencies": {
+    "chai": "^4.2.0",
+    "lodash": "^4.17.11",
+    "winston": "^3.1.0"
+  },
+  "devDependencies": {
+    "mocha": "^5.2.0"
+  }
+}
