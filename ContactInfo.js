@@ -1,8 +1,8 @@
+/**
+ * Class which contains Phone Number, Email Address and Name of Contact
+ * @type {module.ContactInfo}
+ */
 module.exports = class ContactInfo {
-    constructor(){
-
-    }
-
     setName(value) {
         this._name = value;
     }
@@ -27,7 +27,20 @@ module.exports = class ContactInfo {
         return this._email;
     }
 
-    getInfo(){
-        return `Name: ${this.getName()}\nPhone: ${this.getPhone()}\nEmail: ${this.getEmail()}`;
+    getInfo() {
+        const isEmptyOrNull = (value) => {
+                return value == null || value == "" || typeof value === "undefined";
+        };
+
+        const name = this.getName();
+        const phone = this.getPhone();
+        const email = this.getEmail();
+
+        if(isEmptyOrNull(name) && isEmptyOrNull(phone) && isEmptyOrNull(email)){
+            return "No Information Found for Contact";
+        }
+
+
+        return `Name: ${name}\nPhone: ${phone}\nEmail: ${email}`;
     }
 };

@@ -1,118 +1,142 @@
+/**
+ * Module which does the heavy lifting for the Project.  Parses the document provided via the getContactInfo function
+ * and returns an instance of the ContactInfo class.
+ */
+
 const _ = require("lodash");
-const logger = require("./logger")();
+const nlp = require('compromise');
 const ContactInfo = require('./ContactInfo');
-const PopularNames = require("./data/PopularNames");
 
 module.exports = class BusinessCardParser {
-    constructor() {
-        this.popularNames = new PopularNames();
-    }
+    /**
+     * Accepts a document and attempts to parse into properly formatted phone number.
+     *
+     * If document contains the word "fax", then will not attempt to parse.
+     *
+     * Attempts to grab all digits from document and based on the length of the formatted document,
+     * will determine if there is a match
+     *
+     * @param document
+     * @returns matching value or null
+     */
+    findPhoneNumber(document) {
+        let match = null;
 
-    findPhoneNumber(text) {
-        const formatPhoneNumber = (phone) => {
-            phone = phone.replace("+", "");
+        if (!document.toLowerCase().includes("fax")) {
+            let formattedDoc = document.replace('+', '').replace(/[^0-9]/g, "");
 
-            return phone.replace(/[^0-9]/g, "");
-        };
-
-        if (text.toLowerCase().includes("fax")) {
-            return;
-        } else {
-            text = formatPhoneNumber(text);
-
-            if (text.length >= 10 && text.length <= 11) {
-                return text;
+            if (formattedDoc.length >= 10 && formattedDoc.length <= 11) {
+                match = formattedDoc;
             }
         }
+        return match;
     }
 
-    findEmailAddress(text) {
-        const emailAddressRegex = /(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))/;
+    /**
+     * Accepts a document and attempts to parse into properly formatted email address.
+     *
+     * If document matches regex, will return value as a valid email address.
+     *
+     * @param document
+     * @returns matching value or null
+     */
+    findEmailAddress(document) {
+        const emailAddressRegex =
+            /(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))/;
 
-        const match = emailAddressRegex.exec(text);
+        const emailMatches = emailAddressRegex.exec(document);
 
-        if (_.isNull(match)) {
-            return;
-        } else {
-            return match[0];
+        let match = null;
+
+        if (emailMatches !== null && emailMatches[0] !== null) {
+            match = emailMatches[0];
         }
+        return match;
     }
 
-    findName(text) {
-        let foundName;
+    /**
+     * Accepts a document and attempts to use natural language processing
+     * to determine if the document contains a person's name.
+     *
+     * @param document
+     * @returns matching value or null
+     */
+    findName(document) {
+        let match = null;
 
-        const nameArray = text.split(" ");
+        const possibleNames = nlp(document).people().data();
 
-        _.each(nameArray, (name) => {
-            if (this.popularNames.isPopularFirstName(name) || this.popularNames.isPopularLastName(name)) {
-                foundName = text;
-                return false;
-            }
-        });
+        if (possibleNames !== null && possibleNames.length > 0) {
+            const nameToken = possibleNames[0];
 
-        return foundName;
+            match = nameToken.text;
+        }
+
+        return match;
     }
 
-    process(name, phoneNumber, emailAddress) {
-        const contact = new ContactInfo();
-
-        contact.setName(name);
-        contact.setPhone(phoneNumber);
-        contact.setEmail(emailAddress);
-
-        return contact;
-    }
-
+    /**
+     * Accepts document and parses required information for ContactInfo.
+     *
+     * Takes the original document provided and splits it into three different arrays.
+     *
+     * The first array is a list of all tokens split by a new line character.
+     *
+     * The second array is a list of tokens which include numbers (to make parsing for the phone number faster).
+     *
+     * The third array is a list of tokens which include the @ symbol (to make parsing for email addresses faster).
+     *
+     * Once attempting to find a value for each, properly sets the value in the ContactInfo instance and returns.
+     *
+     * @param document
+     * @returns instance of ContactInfo
+     */
     getContactInfo(document) {
         const includesNumbers = (input) => {
             return /\d/.test(input);
         };
 
-        const contactInfo = new ContactInfo();
+        if(document !== null && document !== "" && typeof document !== "undefined") {
+            const lineArray = document.split("\\n");
 
-        const textArray = document.split("\n");
+            const potentialPhoneArray = _.filter(lineArray, (text) => {
+                return includesNumbers(text)
+            });
+            const potentialEmailArray = _.filter(lineArray, (text) => {
+                return text.includes('@')
+            });
 
-        const potentialNamesArray = _.filter(textArray, (text) => {return !includesNumbers(text)});
-        const potentialPhoneArray = _.filter(textArray, (text) => {return includesNumbers(text)});
-        const potentialEmailArray = _.filter(textArray, (text) => {return text.includes('@')});
+            const contactName = this.findName(lineArray);
 
-        _.each(potentialNamesArray, (text) => {
-            if (!_.isNil(text)) {
-                text = text.trim();
+            const contactInfo = new ContactInfo();
 
-                let foundName = this.findName(text);
+            if (contactName !== null) {
+                contactInfo.setName(contactName);
+            }
 
-                if (!_.isNil(foundName)) {
-                    logger.info('Found Name: ' + foundName);
-                    contactInfo.setName(foundName);
+            for (let i = 0; i < potentialPhoneArray.length; i++) {
+                let phoneNumber = this.findPhoneNumber(potentialPhoneArray[i]);
 
-                    return false;
+                if (phoneNumber !== null) {
+                    contactInfo.setPhone(phoneNumber);
+
+                    break;
                 }
             }
-        });
 
-        _.each(potentialPhoneArray, (text) => {
-            let phoneNumber = this.findPhoneNumber(text);
+            for (let i = 0; i < potentialEmailArray.length; i++) {
+                let emailAddress = this.findEmailAddress(potentialEmailArray[i]);
 
-            if (!_.isNil(phoneNumber)) {
-                logger.info('Found Phone Number: ' + phoneNumber);
-                contactInfo.setPhone(phoneNumber);
+                if (emailAddress !== null) {
+                    contactInfo.setEmail(emailAddress);
 
-                return false;
+                    break;
+                }
             }
-        });
 
-        _.each(potentialEmailArray, (text) => {
-            let emailAddress = this.findEmailAddress(text);
-
-            if (!_.isNil(emailAddress)) {
-                logger.info('Found Email: ' + emailAddress);
-                contactInfo.setEmail(emailAddress);
-
-                return false;
-            }
-        });
-
-        return contactInfo;
+            return contactInfo;
+        } else {
+            throw new Error("Document must not be empty.");
+        }
     }
 };
