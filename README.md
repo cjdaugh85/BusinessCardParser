@@ -32,6 +32,8 @@ After ensuring NodeJs has been installed, run the command:
 
 INSTALLATION:
 
+Recommended to check out the master branch, however a branch was created called "with_modules" in the event the npm repository is down or an issue arises not allowing the user to retrieve the required modules.  If there are issues running "npm install" in the master branch, it should be alleviated by using the "with_modules" branch.
+
 After checking out the project, navigate to the "BusinessCardParser" directory.  Once there, run the command 
     
     npm install
